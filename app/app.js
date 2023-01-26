@@ -1,9 +1,13 @@
 var Router = require('koa-router');
 var bodyparser = require('koa-bodyparser');
 var koa = require('koa');
-var model = require('./in-memory-model');
 var mount = require('koa-mount');
 var oauthserver = require('koa-oauth-server');
+var inMemoryModel = require('./in-memory-model');
+
+var model = new inMemoryModel();
+
+model.dump();
 
 // Create a new koa app.
 var app = new koa();
@@ -21,12 +25,11 @@ app.oauth = oauthserver({
   debug: true
 });
 
-app.use(bodyparser());
-app.use(app.oauth.authorise());
+// Mount `oauth2` route prefix.
+app.use(mount('/oauth2', router.middleware()));
 
-app.use(function *(next) {
-  this.body = 'Secret area';
-  yield next;
-});
+// Register `/token` POST path on oauth router (i.e. `/oauth2/token`).
+router.post('/token', app.oauth.grant());
+
 
 app.listen(3000, () => console.log('Listening on port 3000'));

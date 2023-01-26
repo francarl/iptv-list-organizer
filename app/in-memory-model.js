@@ -87,4 +87,3 @@ function InMemoryCache() {
    */
   
   module.exports = InMemoryCache;
-  
