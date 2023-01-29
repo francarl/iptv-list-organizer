@@ -1,0 +1,79 @@
+version: '3.4'
+
+volumes:
+    keycloak-postgres-data:
+    keycloak-nginx-letsencrypt-ssl:
+
+services:
+  app1:
+    image: app1
+    container_name: app1
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: development
+    ports:
+      - 3000:3000
+      - 9229:9229
+    command: ["node", "--inspect=0.0.0.0:9229", "app/app.js"]
+
+  postgres:
+    image: postgres
+    container_name: postgres
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=password1
+    logging:
+      options:
+        max-size: "50m"
+        max-file: "3"
+    restart: unless-stopped
+  keycloak:
+    image: "mihaibob/keycloak:18.0.2-legacy"
+    container_name: keycloak
+    depends_on:
+      - postgres
+    environment:
+      - DB_VENDOR=postgres
+      - DB_ADDR=postgres
+      - DB_USER=keycloak
+      - DB_PASSWORD=password1
+      - DB_DATABASE=keycloak
+      - PROXY_ADDRESS_FORWARDING=true
+      - KEYCLOAK_USER=admin
+      - KEYCLOAK_PASSWORD=password2
+    ports:
+      - "8080:8080"
+    logging:
+      options:
+        max-size: "50m"
+        max-file: "3"
+    restart: unless-stopped
+  nginx:
+    build:
+      context: docker/keycloak-nginx-lets-encrypt
+    container_name: nginx
+    depends_on:
+      - keycloak
+    volumes:
+      - keycloak-nginx-letsencrypt-ssl:/etc/letsencrypt
+    environment:
+      - KEYCLOAK_HOST=keycloak
+      - KEYCLOAK_PORT=8080
+      - KEYCLOAK_DOMAIN=francarl77.ns0.it
+      - LE_EMAIL=fam.carlucci2012@gmail.com
+      - LE_OPTIONS=
+      - LE_RENEW_OPTIONS="--dry-run --no-self-upgrade --post-hook '"'nginx -s reload'"'"
+      - LE_RENEW_CRON_COMMAND="echo 'Dummy cron command'"
+    logging:
+      options:
+        max-size: "50m"
+        max-file: "3"
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
